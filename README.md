@@ -1,7 +1,9 @@
 # json
-A JSON to Picat converter based mbionchi's JSON module at at: https://github.com/mbionchi/json-picat
+A JSON <-> Picat converter based mbionchi's JSON module at at: https://github.com/mbionchi/json-picat
 
-by Neng-Fa Zhou, 2020
+* json_read(File): reads a JSON file into Picat. 
+* json_read(): same as json_read(stdin).
+* json_write(T): Write Picat term T into JSON format to stdout.
 
 This version incorporates the following improvements:
 
