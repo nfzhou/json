@@ -1,0 +1,271 @@
+% A module for reading and writing JSON-format data
+% Based mbionchi's JSON module at at: https://github.com/mbionchi/json-picat
+% by Neng-Fa Zhou, 2022
+
+json_read(File) = T =>
+    json_read_dict_from_file(File,T).
+
+json_read() = T =>
+    json_read_dict(stdin,T).
+        
+json_read_dict_from_file(File,T) =>
+    S = read_file_chars(File),
+    json_to_picat(S,T,_).
+
+json_read_dict(Stream,T) =>
+    Ch = read_char(Stream),
+    read_chars(Stream,Ch,S),
+    json_to_picat(S,T,_).
+
+private
+read_chars(_Stream,end_of_file,S) => S = [].
+read_chars(Stream,Ch,S) =>
+    S = [Ch|SR],
+    NextCh = read_char(Stream),
+    read_chars(Stream,NextCh,SR).
+
+private
+json_to_picat(['"'|Str],Term,StrR) =>
+    json_string_to_picat(Str,Term,StrR).
+json_to_picat(['-'|Str],Term,StrR) =>
+    json_number_to_picat(Str,Term,'-',StrR).
+json_to_picat(Str@[N|_],Term,StrR),digit(N) =>
+    json_number_to_picat(Str,Term,'+',StrR).
+json_to_picat(['{'|Str],Term,StrR) =>
+    json_object_to_picat(Str,Term,StrR).
+json_to_picat(['['|Str],Term,StrR) =>
+    json_array_to_picat(Str,Term,StrR).
+json_to_picat([t,r,u,e|Str],Term,StrR) =>
+    Term = true,StrR = Str.
+json_to_picat([f,a,l,s,e|Str],Term,StrR) =>
+    Term = false,StrR = Str.
+json_to_picat([n,u,l,l|Str],Term,StrR) =>
+    Term = null,StrR = Str.
+json_to_picat([C|Str],Term,StrR),whitespace(C) =>
+    json_to_picat(Str,Term,StrR).
+json_to_picat(Str,_Term,_StrR) =>
+    throw($json_syntax_error(1,Str)).
+
+private
+json_string_to_picat(['"'|Str],Term,StrR) =>
+    Term = [],StrR = Str.
+json_string_to_picat(['\\','"'|Str],Term,StrR) =>
+    Term = ['"'|TermR],
+    json_string_to_picat(Str,TermR,StrR).
+json_string_to_picat(['\\','\\'|Str],Term,StrR) =>
+    Term = ['\\'|TermR],
+    json_string_to_picat(Str,TermR,StrR).
+json_string_to_picat(['\\','/'|Str],Term,StrR) =>
+    Term = ['/'|TermR],
+    json_string_to_picat(Str,TermR,StrR).
+json_string_to_picat(['\\','b'|Str],Term,StrR) =>
+    Term = ['\b'|TermR],
+    json_string_to_picat(Str,TermR,StrR).
+json_string_to_picat(['\\','f'|Str],Term,StrR) =>
+    Term = ['\f'|TermR],
+    json_string_to_picat(Str,TermR,StrR).
+json_string_to_picat(['\\','n'|Str],Term,StrR) =>
+    Term = ['\n'|TermR],
+    json_string_to_picat(Str,TermR,StrR).
+json_string_to_picat(['\\','r'|Str],Term,StrR) =>
+    Term = ['\r'|TermR],
+    json_string_to_picat(Str,TermR,StrR).
+json_string_to_picat(['\\','t'|Str],Term,StrR) =>
+    Term = ['\t'|TermR],
+    json_string_to_picat(Str,TermR,StrR).
+json_string_to_picat(['\\','u',A,B,C,D|Str],Term,StrR) =>
+    Term = ['\\','u',A,B,C,D|TermR],
+    json_string_to_picat(Str,TermR,StrR).
+json_string_to_picat(Str@['\\'|_],_,_) =>
+    throw($json_syntax_error(2,Str)).
+json_string_to_picat([C|Str],Term,StrR) =>
+    Term = [C|TermR],
+    json_string_to_picat(Str,TermR,StrR).
+
+private
+json_number_to_picat(Str,Term,Sign,StrR) =>
+    jason_extract_number_chars(Str,NumChs,StrR),
+    Val = to_number(NumChs),
+    (Sign == '+' -> Term = Val; Term = -Val).
+
+% the correctness of syntax is not checked!
+%
+jason_extract_number_chars(['e'|Str],NumChs,StrR) =>
+    NumChs = [e|NumChsR],
+    jason_extract_number_chars(Str,NumChsR,StrR).
+jason_extract_number_chars(['E'|Str],NumChs,StrR) =>
+    NumChs = ['E'|NumChsR],
+    jason_extract_number_chars(Str,NumChsR,StrR).
+jason_extract_number_chars(['.'|Str],NumChs,StrR) =>
+    NumChs = ['.'|NumChsR],
+    jason_extract_number_chars(Str,NumChsR,StrR).
+jason_extract_number_chars([C|Str],NumChs,StrR),digit(C) =>
+    NumChs = [C|NumChsR],
+    jason_extract_number_chars(Str,NumChsR,StrR).
+jason_extract_number_chars(Str,NumChs,StrR) =>
+    NumChs = [],Str = StrR.
+
+private
+json_array_to_picat(Str,Term,StrR),
+    json_array_element_to_picat(Str,Term,Str1)
+=>
+    StrR = Str1.
+json_array_to_picat(Str,_Term,_StrR) =>
+    throw($json_syntax_error(3,Str)).
+
+private
+json_array_element_to_picat([']'|Str],Term,StrR) =>
+    Term = [],StrR = Str.
+json_array_element_to_picat([C|Str],Term,StrR),whitespace(C) =>
+    json_array_element_to_picat(Str,Term,StrR).
+json_array_element_to_picat(Str,Term,StrR) =>
+    json_to_picat(Str,Term1,Str1),
+    Term = [Term1|TermR],
+    json_array_to_picat_help(Str1,TermR,StrR).
+    
+private
+json_array_to_picat_help([']'|Str],Term,StrR) =>
+    Term = [],StrR = Str.
+json_array_to_picat_help([','|Str],Term,StrR) =>
+    json_array_element_to_picat(Str,Term,StrR).
+json_array_to_picat_help([C|Str],Term,StrR),whitespace(C) =>
+    json_array_to_picat_help(Str,Term,StrR).
+
+private
+json_object_to_picat(Str,Term,StrR) =>
+    json_object_kv_pair_to_picat(Str,Pairs,StrR),
+    Term = new_map(Pairs).
+
+private
+json_object_kv_pair_to_picat(['}'|Str],Pairs,StrR) =>
+    Pairs = [],StrR = Str.
+json_object_kv_pair_to_picat([C|Str],Pairs,StrR),whitespace(C) =>
+    json_object_kv_pair_to_picat(Str,Pairs,StrR).
+json_object_kv_pair_to_picat(['"'|Str],Pairs,StrR) =>
+    json_string_to_picat(Str,Key,Str1),
+    json_object_val_to_picat(Str1,Val,StrR2),
+    Pairs = [(Key=Val)|PairsR],
+    json_object_to_picat_help(StrR2,PairsR,StrR).
+
+private
+json_object_to_picat_help(['}'|Str],Pairs,StrR) =>
+    Pairs = [],StrR = Str.
+json_object_to_picat_help([','|Str],Pairs,StrR) =>
+    json_object_kv_pair_to_picat(Str,Pairs,StrR).
+json_object_to_picat_help([C|Str],Pairs,StrR),whitespace(C) =>
+    json_object_to_picat_help(Str,Pairs,StrR).
+json_object_to_picat_help(Str,_Pairs,_StrR) =>
+    throw($json_syntax_error(4,Str)).
+    
+private
+json_object_val_to_picat([C|Str],Val,StrR),whitespace(C) =>
+    json_object_val_to_picat(Str,Val,StrR).
+json_object_val_to_picat([':'|Str],Val,StrR) =>
+    json_to_picat(Str,Val,StrR).
+json_object_val_to_picat(Str,_Val,_StrR) =>
+    throw($json_syntax_error(5,Str)).    
+
+private
+whitespace(' ') => true.
+whitespace('\t') => true.
+whitespace('\n') => true.
+whitespace('\r') => true.
+
+json_write(Term) =>
+    picat_to_json(Term,S,[]),
+    writef("%s\n", S).
+
+picat_to_json(Term,S,SR), list(Term) =>
+    S = ['['|S1],
+    picat_to_json_list(Term, S1,SR).
+picat_to_json(true,S,SR) =>
+    S = ["true"|SR].
+picat_to_json(false,S,SR) =>
+    S = ["false"|SR].
+picat_to_json(null,S,SR) =>
+    S = ["null"|SR].
+picat_to_json(Term,S,SR), string(Term) =>
+    S = ['"'|S1],
+    escape_string(Term, S1, S2),
+    S2 = ['"'|SR].
+picat_to_json(Term,S,SR), atom(Term) =>
+    bp.b_TO_STRING_cff(Term,S,SR).
+picat_to_json(Term,S,SR), number(Term) =>
+    bp.b_TO_STRING_cff(Term,S,SR).
+picat_to_json(Term,S,SR), array(Term) =>
+    picat_to_json(Term.to_list(),S,SR).
+picat_to_json(Term,S,SR), map(Term) =>
+    S = ['{'|S1],
+    picat_to_json_map(map_to_list(Term), S1, S2),
+    S2 = ['}'|SR].
+
+private
+escape_string([],S,SR) => S = SR.
+escape_string(['"'|T],S,SR) =>
+    S = ['\\','"'|S1],
+    escape_string(T,S1,SR).
+escape_string(['\\'|T],S,SR) =>
+    S = ['\\','\\'|S1],
+    escape_string(T, S1,SR).
+escape_string(['/'|T],S,SR) =>
+    S = ['\\','/'|S1],
+    escape_string(T,S1,SR).
+escape_string(['\b'|T],S,SR) =>
+    S = ['\\','b'|S1],
+    escape_string(T,S1,SR).
+escape_string(['\f'|T],S,SR) =>
+    S = ['\\','f'|S1],
+    escape_string(T,S1,SR).
+escape_string(['\n'|T],S,SR) =>
+    S = ['\\','n'|S1],
+    escape_string(T,S1,SR).
+escape_string(['\r'|T],S,SR) =>
+    S = ['\\','r'|S1],
+    escape_string(T,S1,SR).
+escape_string(['\t'|T],S,SR) =>
+    S = ['\\','t'|S1],
+    escape_string(T,S1,SR).
+escape_string([H|T], S,SR), ord(H) > 255 =>
+    S = ['\\', 'u'|S1],
+    F = to_hex_string(ord(H)),
+    once ([A,B,C,D] = F;
+    [A,B,C,D] = ['0'|F];
+    [A,B,C,D] = ['0','0'|F];
+    [A,B,C,D] = ['0','0','0'|F]),
+    S1 = [A,B,C,D|S2],
+    escape_string(T,S2,SR).
+escape_string([H|T],S,SR) =>
+    S = [H|S1],
+    escape_string(T,S1,SR).
+
+private
+picat_to_json_list([],S,SR) =>
+    S = [']'|SR].
+picat_to_json_list([H],S,SR) =>
+    picat_to_json(H,S,S1),
+    S1 = [']'|SR].
+picat_to_json_list([H|T],S,SR) =>
+    picat_to_json(H,S,S1),
+    S1 = [','|S2],
+    picat_to_json_list(T,S2,SR).
+
+private
+picat_to_json_map([],S,SR) =>
+    S = ['}'|SR].
+picat_to_json_map([K=V],S,SR), string(K) =>
+    S = ['"'|S1],
+    bp.append_diff(K,S1,S2),
+    S2 = ['"'|S3],    
+    S3 = [':'|S4],
+    picat_to_json(V,S4,S5),
+    S5 = ['}'|SR].
+picat_to_json_map([K=V|T],S,SR), string(K) =>
+    S = ['"'|S1],
+    bp.append_diff(K,S1,S2),
+    S2 = ['"'|S3],    
+    S3 = [':'|S4],
+    picat_to_json(V,S4,S5),
+    S5 = [','|S6],
+    picat_to_json_map(T,S6,SR).
+picat_to_json_map([K=V|T],S,SR) =>
+    throw($error(string_expected(K))).
