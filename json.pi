@@ -196,8 +196,7 @@ picat_to_json(Term,S,SR), array(Term) =>
     picat_to_json(Term.to_list(),S,SR).
 picat_to_json(Term,S,SR), map(Term) =>
     S = ['{'|S1],
-    picat_to_json_map(map_to_list(Term), S1, S2),
-    S2 = ['}'|SR].
+    picat_to_json_map(map_to_list(Term), S1, SR).
 
 private
 escape_string([],S,SR) => S = SR.
