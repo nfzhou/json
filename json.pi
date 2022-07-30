@@ -173,7 +173,7 @@ whitespace('\r') => true.
 
 json_write(Term) =>
     picat_to_json(Term,S,[]),
-    writef("%s\n", S).
+    println(S).
 
 picat_to_json(Term,S,SR), list(Term) =>
     S = ['['|S1],
