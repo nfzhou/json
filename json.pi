@@ -175,15 +175,18 @@ json_write(Term) =>
     picat_to_json(Term,S,[]),
     println(S).
 
+picat_to_json(Term,S,SR), map(Term) =>
+    S = ['{'|S1],
+    picat_to_json_map(map_to_list(Term), S1, SR).
 picat_to_json(Term,S,SR), list(Term) =>
     S = ['['|S1],
     picat_to_json_list(Term, S1,SR).
 picat_to_json(true,S,SR) =>
-    S = ["true"|SR].
+    S = [t,r,u,e|SR].
 picat_to_json(false,S,SR) =>
-    S = ["false"|SR].
+    S = [f,a,l,s,e|SR].
 picat_to_json(null,S,SR) =>
-    S = ["null"|SR].
+    S = [n,u,l,l|SR].
 picat_to_json(Term,S,SR), string(Term) =>
     S = ['"'|S1],
     escape_string(Term, S1, S2),
@@ -194,9 +197,6 @@ picat_to_json(Term,S,SR), number(Term) =>
     bp.b_TO_STRING_cff(Term,S,SR).
 picat_to_json(Term,S,SR), array(Term) =>
     picat_to_json(Term.to_list(),S,SR).
-picat_to_json(Term,S,SR), map(Term) =>
-    S = ['{'|S1],
-    picat_to_json_map(map_to_list(Term), S1, SR).
 
 private
 escape_string([],S,SR) => S = SR.
